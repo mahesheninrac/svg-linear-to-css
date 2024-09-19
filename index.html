@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Gradient to CSS Converter</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #result {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        background-color: #f9f9f9;
+      }
+      #gradientBox {
+        margin-top: 20px;
+        height: 200px;
+        border: 1px solid #ccc;
+        background-color: #f0f0f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #333;
+      }
+      button {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>SVG Gradient to CSS Converter</h1>
+    <input type="file" id="svgFileInput" accept=".svg" />
+    <button id="convertButton">Convert to CSS</button>
+
+    <h2>CSS Output:</h2>
+    <div id="result"></div>
+    <button id="copyButton" style="display: none">Copy to Clipboard</button>
+
+    <h2>Gradient Preview:</h2>
+    <div id="gradientBox">Gradient Preview</div>
+
+    <script>
+      document
+        .getElementById("convertButton")
+        .addEventListener("click", function () {
+          const fileInput = document.getElementById("svgFileInput");
+          if (fileInput.files.length === 0) {
+            alert("Please upload an SVG file.");
+            return;
+          }
+
+          const file = fileInput.files[0];
+          const reader = new FileReader();
+
+          reader.onload = function (event) {
+            const input = event.target.result;
+            const output = parseInput(input);
+            console.log(output);
+            document.getElementById("result").textContent = output;
+            document.getElementById("gradientBox").style.backgroundImage =
+              output;
+
+            // Show the copy button if there is output
+            if (output) {
+              document.getElementById("copyButton").style.display =
+                "inline-block";
+            }
+          };
+
+          reader.readAsText(file);
+        });
+
+      document
+        .getElementById("copyButton")
+        .addEventListener("click", function () {
+          const output = document.getElementById("result").textContent;
+          navigator.clipboard
+            .writeText(output)
+            .then(() => {
+              alert("CSS output copied to clipboard!");
+            })
+            .catch((err) => {
+              console.error("Failed to copy: ", err);
+            });
+        });
+
+      function parseInput(input) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(input, "image/svg+xml");
+        const gradients = [];
+
+        // Handle linear gradients
+        const linearGradients = doc.querySelectorAll("linearGradient");
+        linearGradients.forEach((lg) => {
+          const angle = getGradientAngle(lg);
+          const stops = getGradientStops(lg);
+          if (stops.length > 0) {
+            const gradientString = `linear-gradient(${angle}deg, ${stops.join(
+              ", "
+            )})`;
+            gradients.push(gradientString);
+          }
+        });
+
+        // Handle radial gradients
+        const radialGradients = doc.querySelectorAll("radialGradient");
+        radialGradients.forEach((rg) => {
+          const stops = getGradientStops(rg);
+          const cx = rg.getAttribute("cx") || "50%";
+          const cy = rg.getAttribute("cy") || "50%";
+          const r = rg.getAttribute("r") || "50%";
+          if (stops.length > 0) {
+            const gradientString = `radial-gradient(circle at ${cx} ${cy}, ${stops.join(
+              ", "
+            )})`;
+            gradients.push(gradientString);
+          }
+        });
+
+        return gradients.join(", ");
+      }
+
+      function getGradientAngle(lg) {
+        const x1 = parseFloat(lg.getAttribute("x1")) || 0;
+        const y1 = parseFloat(lg.getAttribute("y1")) || 0;
+        const x2 = parseFloat(lg.getAttribute("x2")) || 100;
+        const y2 = parseFloat(lg.getAttribute("y2")) || 0;
+
+        const angleRad = Math.atan2(y2 - y1, x2 - x1);
+        return angleRad * (180 / Math.PI);
+      }
+
+      function getGradientStops(gradient) {
+        return Array.from(gradient.querySelectorAll("stop"))
+          .map((stop) => {
+            const offset = stop.getAttribute("offset");
+            const formattedOffset = formatOffset(offset);
+            const color =
+              stop.getAttribute("stop-color") || getStyleColor(stop);
+            return `${color} ${formattedOffset}`;
+          })
+          .filter(Boolean);
+      }
+
+      function formatOffset(offset) {
+        const numericOffset = parseFloat(offset);
+        if (!isNaN(numericOffset)) {
+          return Math.round(numericOffset * 1000) / 10 + "%"; // Round to one decimal place
+        }
+        return "0%"; // Default if parsing fails
+      }
+
+      function getStyleColor(stop) {
+        const style = stop.getAttribute("style");
+        if (style) {
+          const match = style.match(/stop-color:\s*([^;]+)/);
+          return match ? match[1].trim() : undefined;
+        }
+        return undefined;
+      }
+    </script>
+  </body>
+</html>
